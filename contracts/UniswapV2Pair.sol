@@ -1,17 +1,22 @@
 pragma solidity =0.5.16;
 
-import './interfaces/IUniswapV2Pair.sol';
+// 接口合约
+import './interfaces/IUniswapV2Pair.sol'; 
+// 之后配对合约会生成一个 ERC20 代币
 import './UniswapV2ERC20.sol';
+// 数学库
 import './libraries/Math.sol';
 import './libraries/UQ112x112.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IUniswapV2Factory.sol';
 import './interfaces/IUniswapV2Callee.sol';
 
+// ERC20 配对合约
 contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     using SafeMath  for uint;
     using UQ112x112 for uint224;
 
+    // 最小流动性
     uint public constant MINIMUM_LIQUIDITY = 10**3;
     bytes4 private constant SELECTOR = bytes4(keccak256(bytes('transfer(address,uint256)')));
 
@@ -27,6 +32,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     uint public price1CumulativeLast;
     uint public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
 
+    // 防止重入
     uint private unlocked = 1;
     modifier lock() {
         require(unlocked == 1, 'UniswapV2: LOCKED');
@@ -41,6 +47,12 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         _blockTimestampLast = blockTimestampLast;
     }
 
+
+    // 安全发送
+    // @param token token地址
+    // @param to to地址
+    // @param value 数额
+    // @dev 私有安全发送
     function _safeTransfer(address token, address to, uint value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR, to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2: TRANSFER_FAILED');
@@ -63,7 +75,9 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // called once by the factory at time of deployment
+    // 初始化方法,部署时有工厂调用一次
     function initialize(address _token0, address _token1) external {
+        // 确认调用者为工厂合约
         require(msg.sender == factory, 'UniswapV2: FORBIDDEN'); // sufficient check
         token0 = _token0;
         token1 = _token1;
@@ -107,10 +121,17 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
+    // param to to地址
+    // return liquidity 流动性数量
+    // @dev 铸造方法
+    // 
     function mint(address to) external lock returns (uint liquidity) {
+        // 获取当前两个储备量
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
+        // 当前地址在两个 token 中的余额
         uint balance0 = IERC20(token0).balanceOf(address(this));
         uint balance1 = IERC20(token1).balanceOf(address(this));
+        // amount = 余额 - 储备
         uint amount0 = balance0.sub(_reserve0);
         uint amount1 = balance1.sub(_reserve1);
 
